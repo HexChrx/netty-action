@@ -17,6 +17,8 @@ import java.util.Date;
  */
 public class TimeServerHandler extends ChannelHandlerAdapter {
 
+    private int counter;
+
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         cause.printStackTrace();
@@ -25,14 +27,13 @@ public class TimeServerHandler extends ChannelHandlerAdapter {
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
-        ByteBuf buf = (ByteBuf) msg;
-        byte[] req = new byte[buf.readableBytes()];
-        buf.readBytes(req);
-        String body = new String(req, StandardCharsets.UTF_8);
-        System.out.println("The time server receive order : " + body);
-        String currentTime = "QUERY TIME ORDER".equalsIgnoreCase(body) ? new Date().toString() : "BAD ORDER";
+
+        String body = (String) msg;
+        System.out.printf("The time server receive order : %s; the counter is : %d%n", body, ++counter);
+        String currentTime = ("QUERY TIME ORDER".equalsIgnoreCase(body) ? new Date().toString() : "BAD ORDER")
+                + System.lineSeparator();
         ByteBuf resp = Unpooled.copiedBuffer(currentTime.getBytes(StandardCharsets.UTF_8));
-        ctx.write(resp);
+        ctx.writeAndFlush(resp);
     }
 
     @Override
