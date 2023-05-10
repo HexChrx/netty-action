@@ -1,5 +1,6 @@
 package com.example.nettyaction.wss;
 
+import com.example.nettyaction.common.Constants;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
@@ -25,7 +26,9 @@ public class WebSocketServerHandler extends SimpleChannelInboundHandler<Object> 
     private static final Logger logger = Logger
             .getLogger(WebSocketServerHandler.class.getName());
 
-    private WebSocketServerHandshaker handshaker;
+    private static final String WS_URI = String.format("ws://%s:%d/websocket", Constants.HOST, Constants.PORT);
+
+    private WebSocketServerHandshaker handshake;
 
     @Override
     protected void messageReceived(ChannelHandlerContext ctx, Object msg) throws Exception {
@@ -42,23 +45,23 @@ public class WebSocketServerHandler extends SimpleChannelInboundHandler<Object> 
     }
 
     private void handleHttpRequest(ChannelHandlerContext ctx, FullHttpRequest req) {
-        if (req.decoderResult().isFailure() || !"websocket".contentEquals(req.headers().get("Upgrade"))) {
+        if (req.decoderResult().isFailure() || !HttpHeaderValues.WEBSOCKET.contentEquals(req.headers().get(HttpHeaderNames.UPGRADE))) {
             sendHttpResponse(ctx, req, new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.BAD_REQUEST));
             return;
         }
 
-        WebSocketServerHandshakerFactory wsFactor = new WebSocketServerHandshakerFactory("ws://localhost:9999/websocket", null, false);
-        handshaker = wsFactor.newHandshaker(req);
-        if (handshaker == null) {
+        WebSocketServerHandshakerFactory wsFactor = new WebSocketServerHandshakerFactory(WS_URI, null, false);
+        handshake = wsFactor.newHandshaker(req);
+        if (handshake == null) {
             WebSocketServerHandshakerFactory.sendUnsupportedVersionResponse(ctx.channel());
         } else {
-            handshaker.handshake(ctx.channel(), req);
+            handshake.handshake(ctx.channel(), req);
         }
     }
 
     private void handleWebSocketFrame(ChannelHandlerContext ctx, WebSocketFrame frame) {
         if (frame instanceof CloseWebSocketFrame) {
-            handshaker.close(ctx.channel(), ((CloseWebSocketFrame) frame).retain());
+            handshake.close(ctx.channel(), ((CloseWebSocketFrame) frame).retain());
             return;
         }
 
@@ -78,7 +81,7 @@ public class WebSocketServerHandler extends SimpleChannelInboundHandler<Object> 
     }
 
     private void sendHttpResponse(ChannelHandlerContext ctx, FullHttpRequest req, FullHttpResponse resp) {
-        if (resp.status().code() != 200) {
+        if (resp.status().code() != HttpResponseStatus.OK.code()) {
             ByteBuf buf = Unpooled.copiedBuffer(resp.status().toString(), StandardCharsets.UTF_8);
             resp.content().writeBytes(buf);
             buf.release();
@@ -86,7 +89,7 @@ public class WebSocketServerHandler extends SimpleChannelInboundHandler<Object> 
         }
 
         ChannelFuture f = ctx.channel().writeAndFlush(resp);
-        if (!isKeepAlive(req) || resp.status().code() != 200) {
+        if (!isKeepAlive(req) || resp.status().code() != HttpResponseStatus.OK.code()) {
             f.addListener(ChannelFutureListener.CLOSE);
         }
     }
