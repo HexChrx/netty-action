@@ -36,7 +36,6 @@ public class WebSocketServer {
                         }
                     });
             Channel channel = b.bind(port).sync().channel();
-            ChannelFuture future = b.bind(host, port).sync();
             System.out.printf("WebSocket server started at port: %d. Open your browser and navigate to http://%s:%d/",
                     port, host, port);
 
